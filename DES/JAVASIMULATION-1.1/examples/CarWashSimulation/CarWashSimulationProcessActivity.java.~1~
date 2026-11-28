@@ -1,0 +1,85 @@
+import javaSimulation.*;
+import javaSimulation.Process;
+
+public class CarWashSimulationProcessActivity extends Process {
+    int noOfCarWashers;
+    double simPeriod = 200;
+    Head tearoom = new Head();
+    Head waitingLine = new Head();
+    Random random = new Random(5);
+    double throughTime; 
+    int noOfCustomers, maxLength;
+    long startTime = System.currentTimeMillis();
+	
+    CarWashSimulationProcessActivity(int n) { noOfCarWashers = n; }
+
+     public void actions() {
+        for (int i = 1; i <= noOfCarWashers; i++)
+            new CarWasher().into(tearoom);
+        activate(new CarArrival());
+        hold(simPeriod + 1000000);
+        report();
+    }
+
+    void report() {
+        System.out.println(noOfCarWashers + " car washer simulation");
+        System.out.println("No.of cars through the system = " + 
+                           noOfCustomers);
+        java.text.NumberFormat fmt = java.text.NumberFormat.getNumberInstance();
+        fmt.setMaximumFractionDigits(2);
+        System.out.println("Av.elapsed time = " + 
+                           fmt.format(throughTime/noOfCustomers));
+        System.out.println("Maximum queue length = " + maxLength);
+        System.out.println("\nExecution time: " +
+                            fmt.format((System.currentTimeMillis() 
+                                        - startTime)/1000.0) +			   
+                           " secs.\n");
+    }
+
+    class CarWasher extends Link { }
+
+    class Car extends Link { double entryTime = time(); }
+
+    class CarArrival extends Process {
+        public void actions() {
+            if (time() <= simPeriod) {
+                Car theCar = new Car();
+                theCar.into(waitingLine);
+                activate(new CarWashing(theCar));
+                int qLength = waitingLine.cardinal();
+                if (maxLength < qLength) 
+                    maxLength = qLength;
+                hold(random.negexp(1/11.0));
+                activate(new CarArrival());
+           }
+       }
+    }
+
+    class CarWashing extends Process {
+        Car theCar;
+        CarWasher theCarWasher;
+	
+        CarWashing(Car c) { theCar = c; }
+	
+        public void actions() {
+            if (theCar == (Car) waitingLine.first() && !tearoom.empty()) {
+                theCar.out();
+                theCarWasher = (CarWasher) tearoom.first();
+                theCarWasher.out();
+                if (!waitingLine.empty())
+	     activate(new CarWashing((Car) waitingLine.first()));
+                hold(10);
+                theCarWasher.into(tearoom);
+                noOfCustomers++;
+                throughTime += time() - theCar.entryTime;
+                if (!waitingLine.empty())
+	     activate(new CarWashing((Car) waitingLine.first()));
+            } 
+        }
+    }
+		
+    public static void main(String args[]) {
+        activate(new CarWashSimulationProcessActivity(1));	
+        activate(new CarWashSimulationProcessActivity(2));	
+    }
+}
